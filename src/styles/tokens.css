@@ -1,0 +1,67 @@
+/* ============================================================
+   Flâneur — Design Tokens
+   Pulled 1:1 from FLANEUR_DESIGN_SYSTEM.md + flaneur-pedal.html
+   ============================================================ */
+
+/* WEIRT-TRIAL display font — drop the file in public/fonts/ and it
+   picks up automatically. Until then it falls back to the serif stack. */
+@font-face {
+  font-family: "WEIRT";
+  src: url("/fonts/Weirt-Trial.otf") format("opentype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  /* ---- Device / panel ---- */
+  --panel:    #d6d2ca;
+  --panel-hi: #e1ded7;
+  --panel-lo: #cac6be;
+  --tile-hi:  #d2cfc7;
+  --tile-lo:  #bdb9b1;
+  --raise-hi: #f4f2ec;
+  --raise-lo: #cbc8c1;
+
+  /* ---- Ink ---- */
+  --ink:      #4a463f;
+  --ink-soft: #8a857b;
+
+  /* ---- Accent (exactly one) ---- */
+  --accent:    #e8511e;
+  --accent-lo: #c23c11;
+
+  /* ---- LCD / status ---- */
+  --led:    #41d18a;
+  --amber:  #f0a020;
+  --lcd-bg: #283230;
+  --lcd-bg-2: #2f3a37;
+  --lcd-ink: #7df0b0;
+
+  /* ---- Paper map ---- */
+  --paper:      #e9e1d0;
+  --paper-ink:  #7a6f58;
+  --map-street: #c4b694;
+  --map-ave:    #b0a07c;
+  --map-water:  #aebeb2;
+  --map-park:   #c4cda2;
+
+  /* ---- Type ---- */
+  --font-display: "WEIRT", "Crimson Text", Georgia, serif; /* on-brand placeholder until WEIRT-TRIAL is supplied */
+  --font-serif:   "Crimson Text", Georgia, serif;
+  --font-mono:    "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans:    -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  /* ---- Geometry ---- */
+  --r-shell: 30px;
+  --r-card:  16px;
+  --r-lcd:   12px;
+  --r-btn:   14px;
+
+  /* ---- Elevation recipes (skeuomorphic core) ---- */
+  --shadow-raise: 4px 5px 10px rgba(80,60,35,.35), -2px -2px 6px rgba(255,255,255,.5), inset 0 1px 1px rgba(255,255,255,.8);
+  --shadow-inset: inset 3px 4px 8px rgba(80,60,35,.3), inset 0 -1px 1px rgba(255,255,255,.4);
+
+  /* ---- Motion ---- */
+  --ease-spring: cubic-bezier(.5, 1.6, .4, 1);
+  --ease-out:    cubic-bezier(.32, .72, 0, 1);
+}

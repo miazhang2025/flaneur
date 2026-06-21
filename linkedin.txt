@@ -1,0 +1,10 @@
+A few years ago I crossed the Brooklyn Bridge into Chinatown with the In the Mood for Love soundtrack in my headphones. For a few minutes the city stopped being a place and became a film scene.
+I couldn't stop thinking about that feeling. So I spent the last few months building an iOS app to make it happen on purpose — every time you walk out the door.
+It's called Flâneur. As you walk, it plays music that belongs to where you're standing. not a shuffle. sound that's actually rooted in the cultural and atmospheric identity of each neighborhood.
+How it works underneath:
+Every neighborhood gets a "sound identity," scored across four weighted layers — historical/cultural, spatial/atmospheric, who's here now, and time of day. CoreLocation places you at the block level. From there the recommendation runs as a hierarchy:
+neighborhood identity → your own taste → a curated blend → the track that belongs here
+Your taste comes from your real listening history — Spotify for playback, Last.fm for the deeper graph. An AI-curated layer sits on top, blending hand-picked anchors with recommendations. so Greenwich Village sounds like Bill Evans to one walker and like Bob Dylan to another. same place, your filter.
+One rule governs all of it: music leads, geography follows. The app never interrupts a song. you can cross three neighborhood lines mid-track and nothing happens — the city just waits for the song to end, then quietly hands you the next place.
+A word on how it looks: I chose skeuomorphism because I like the texture of the real world — the warmth flat, AI-era design mostly designed away. so Flâneur is a hardware control panel floating over a vintage paper map. modern in its rules, but with weight you can almost feel under your thumb.
+the city writes its poems in music.

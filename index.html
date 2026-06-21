@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Flâneur · The city writes its poems in music</title>
+  <meta name="description" content="Flâneur is a geo-location based app that plays the song that belongs to every street you walk." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- ================= HEADER ================= -->
+  <header class="site-header" id="top">
+    <a class="brand" href="#hero" aria-label="Flâneur — home">Fl&acirc;neur</a>
+    <nav class="site-nav" aria-label="Sections">
+      <a href="#origin">Origin</a>
+      <a href="#music">Atlas</a>
+      <a href="#technical">Engine</a>
+      <a class="nav-cta" href="#wishlist">Download</a>
+    </nav>
+    <button class="nav-toggle" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </header>
+
+  <main id="smooth-content">
+
+    <!-- ================= 1 · HERO ================= -->
+    <section class="section hero" id="hero">
+      <div class="hero__map" id="heroMap" aria-hidden="true"></div>
+      <div class="hero__wash" aria-hidden="true"></div>
+      <div class="hero__fg">
+        <h1 class="hero__title"><span class="hero__wordmark" role="img" aria-label="Fl&acirc;neur"></span></h1>
+        <p class="hero__lead">
+          <span>The city writes its poems in music.</span>
+          <span>A geo-location based musicapp plays the song that belongs to every street you walk.</span>
+        </p>
+        <div class="city-select" id="citySelect" role="tablist" aria-label="Choose a city"></div>
+        <canvas class="grain" aria-hidden="true"></canvas>
+      </div>
+      <a class="scroll-cue" href="#origin" aria-label="Scroll">
+        <span></span>
+      </a>
+    </section>
+
+    <!-- ================= 2 · ABOUT / ORIGIN ================= -->
+    <section class="section about" id="origin">
+      <div class="about__inner">
+        <div class="about__text">
+          <p class="eyebrow">01 · Origin</p>
+          <h2 class="about__title">Sound Follows Footsteps</h2>
+          <div class="about__body">
+            <p>A few years ago I crossed the Brooklyn Bridge into Chinatown with <em>In the Mood for Love</em> in my headphones. For a few minutes the city stopped being a place and became a film &mdash; every passing face a frame, every red awning lit like a set.</p>
+            <p>A <strong>fl&acirc;neur</strong> is a nineteenth-century French word for the one who wanders the city not to arrive, but to feel it &mdash; the stroller, the watcher, the one who reads the street like a page. The city was their gallery; the crowd, their poem.</p>
+            <p>Fl&acirc;neur is an app for that kind of walking. As you move, it plays music rooted in the cultural and atmospheric identity of each neighborhood &mdash; not a shuffle, but the sound that belongs to where you&rsquo;re standing.</p>
+          </div>
+          <a class="btn-accent" href="#wishlist" data-waitlist>Try it Now</a>
+        </div>
+
+        <div class="about__panel">
+          <div class="lcd about__lcd" id="aboutLcd">
+            <span class="lcd-label">Now Playing</span>
+            <div class="lcd-place">Chinatown</div>
+            <div class="lcd-meta">
+              <span>40.715&deg;N 73.997&deg;W</span>
+              <span>Yumeji&rsquo;s Theme · 1:24</span>
+            </div>
+            <canvas class="lcd-wave" id="aboutWave" aria-hidden="true"></canvas>
+          </div>
+
+          <div class="layers" id="aboutLayers">
+            <span class="lcd-label layers__label">Layers</span>
+            <div class="swrow">
+              <div class="swname">History <span>history · culture</span></div>
+              <button class="switch on" data-sw aria-label="History" aria-pressed="true"><span class="nub"></span></button>
+            </div>
+            <div class="swrow">
+              <div class="swname">Atmosphere <span>space · mood</span></div>
+              <button class="switch on" data-sw aria-label="Atmosphere" aria-pressed="true"><span class="nub"></span></button>
+            </div>
+            <div class="swrow">
+              <div class="swname">People <span>here now</span></div>
+              <button class="switch" data-sw aria-label="People" aria-pressed="false"><span class="nub"></span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 3 · MUSIC / ATLAS ================= -->
+    <section class="section music" id="music">
+      <!-- fixed screen that the About LCD grows into; stage panels built in JS -->
+      <div class="music__screen" id="musicScreen" aria-hidden="true">
+        <div class="music__stage" id="musicStage"></div>
+        <div class="music__vignette" aria-hidden="true"></div>
+        <div class="music__progress" id="musicProgress" aria-hidden="true"></div>
+      </div>
+      <!-- interactive 3D walkman (floats over the stage) -->
+      <div class="walkman" id="walkman" role="group" aria-label="Walkman — neighborhood controls">
+        <div class="walkman__a11y">
+          <button type="button" data-wk="prev">Previous neighborhood</button>
+          <button type="button" data-wk="play">Play or pause</button>
+          <button type="button" data-wk="next">Next neighborhood</button>
+        </div>
+        <div class="walkman__hint" aria-hidden="true">drag to tilt · ◀ prev · ▶ play · ▶❙ next</div>
+      </div>
+    </section>
+
+    <!-- ================= 4 · TECHNICAL / ENGINE ================= -->
+    <section class="section technical" id="technical">
+      <div class="tech__inner">
+        <header class="tech__head">
+          <p class="eyebrow">02 · Engine</p>
+          <h2 class="tech__title">How a Street Picks Its Song</h2>
+          <p class="tech__intro">Every neighborhood carries a sound identity &mdash; scored across four weighted layers, blended with a touch of your own taste, and resolved into a track the instant the last one ends.</p>
+        </header>
+
+        <div class="tech__grid">
+          <div class="tech__console" id="techConsole">
+            <div class="tech__bar"><i></i><i></i><i></i><span>fl&acirc;neur — engine</span></div>
+            <pre class="tech__code"><code id="techCode"></code><span class="tech__cursor" id="techCursor">▋</span></pre>
+          </div>
+
+          <div class="tech__weights">
+            <span class="tech__cap">Sound identity · weights</span>
+            <div class="wrow" data-w="35" style="--c:var(--led)">
+              <div class="wrow__top"><span class="wrow__name">History</span><span class="wrow__pct">35%</span></div>
+              <div class="wrow__track"><span class="wrow__fill"></span></div>
+              <div class="wrow__meta">track.getSimilar · what the place was</div>
+            </div>
+            <div class="wrow" data-w="35" style="--c:var(--led)">
+              <div class="wrow__top"><span class="wrow__name">Atmosphere</span><span class="wrow__pct">35%</span></div>
+              <div class="wrow__track"><span class="wrow__fill"></span></div>
+              <div class="wrow__meta">tag.getTopTracks · what it feels like</div>
+            </div>
+            <div class="wrow" data-w="20" style="--c:var(--amber)">
+              <div class="wrow__top"><span class="wrow__name">People</span><span class="wrow__pct">20%</span></div>
+              <div class="wrow__track"><span class="wrow__fill"></span></div>
+              <div class="wrow__meta">geo.getTopTracks · who&rsquo;s here now</div>
+            </div>
+            <div class="wrow" data-w="10" style="--c:var(--accent)">
+              <div class="wrow__top"><span class="wrow__name">Time</span><span class="wrow__pct">10%</span></div>
+              <div class="wrow__track"><span class="wrow__fill"></span></div>
+              <div class="wrow__meta">system modifier · morning vs. midnight</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tech__rule">
+          <p class="tech__sub">Last.fm draws the graph · Spotify only plays</p>
+          <p class="tech__law">Music leads. Geography follows.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 5 · CTA / WISHLIST ================= -->
+    <section class="section cta" id="wishlist">
+      <canvas class="grain cta__grain" aria-hidden="true"></canvas>
+      <div class="cta__inner">
+        <p class="eyebrow">Coming soon · iOS</p>
+        <h2 class="cta__title">Take the city<br>for a walk.</h2>
+        <p class="cta__sub">Fl&acirc;neur launches on iOS, starting with Manhattan. </p>
+        <div class="cta__actions">
+          <a class="btn-accent" href="https://form.typeform.com/to/YPVuTvFh"  rel="noopener">Download</a>
+          <span class="cta__note">★ Free at launch · Spotify account needed. ★</span>
+        </div>
+        <div class="cta__contact">
+          <span>Say hello / Ask Questions —</span>
+          <a href="mailto:miazhang2025@gmail.com" data-contact>miazhang2025@gmail.com</a>
+          <a href="#" data-contact>@flaneur</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= FOOTER ================= -->
+    <footer class="site-footer">
+      <div class="site-footer__mark">Fl&acirc;neur</div>
+      <p class="site-footer__poem">The city writes its poems in music.</p>
+      <div class="site-footer__links">
+        <a href="mailto:hello@flaneur.app" data-contact>Email</a>
+        <a href="#wishlist" data-waitlist>Wishlist</a>
+        <a href="#top">Back to top</a>
+      </div>
+      <p class="site-footer__meta">&copy; 2026 Fl&acirc;neur · dev by MIA</p>
+    </footer>
+
+  </main>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
