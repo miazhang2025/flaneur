@@ -1,11 +1,16 @@
 import * as THREE from 'three'
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 
 /**
- * Procedural matte-plastic "walkman" styled to the Flâneur UI.
- * Sharp-edged warm-grey body, recessed green LCD, and a single row of three
- * buttons: prev · play/pause · next. Hover tilts it toward the cursor; the
- * buttons raycast to the supplied handlers.
+ * Loads the modelled walkman (public/walkman.glb) and styles it to the Flâneur UI.
+ * The body gets a reflective metal-ish material (env-mapped); the recessed green
+ * LCD is driven by a live canvas overlay (place name, coords, waveform). Hover
+ * tilts it toward the cursor; the Prev / Play·Pause / Next nodes raycast to the
+ * supplied handlers.
+ *
+ * The GLB loads asynchronously, but this returns synchronously with the usual
+ * API — state set before the model is ready is queued and applied on load.
  */
 export function initWalkman(container, handlers = {}) {
   const { onPrev = () => {}, onPlayToggle = () => {}, onNext = () => {} } = handlers
@@ -20,93 +25,185 @@ export function initWalkman(container, handlers = {}) {
   renderer.outputColorSpace = THREE.SRGBColorSpace
   container.appendChild(renderer.domElement)
 
-  // ---- lights ----
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6))
-  const key = new THREE.DirectionalLight(0xfff2e0, 1.45); key.position.set(-5, 7, 6); scene.add(key)
-  const fill = new THREE.DirectionalLight(0xbfd4ff, 0.45); fill.position.set(6, -2, 4); scene.add(fill)
-  const rim = new THREE.DirectionalLight(0xffffff, 0.6); rim.position.set(0, 2, -7); scene.add(rim)
+  // ---- environment (drives reflections on the body) ----
+  const pmrem = new THREE.PMREMGenerator(renderer)
+  const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+  scene.environment = envTex
+
+  // ---- thin-film interference shader (oil-slick / anodised sheen on the body) ----
+  // Two-beam interference: light reflecting off the top and bottom of a thin
+  // film travels an extra optical path (2·n·d·cosθ); per-wavelength it constructively
+  // or destructively interferes, so the reflected hue shifts with the view angle.
+  const thinFilm = {
+    thickness: { value: 360.0 }, // film thickness in nm
+    ior: { value: 1.5 },         // film refractive index
+    strength: { value: 1.2 },    // how strongly the iridescence tints the surface
+  }
+  function applyThinFilm(material) {
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.uTFThickness = thinFilm.thickness
+      shader.uniforms.uTFIor = thinFilm.ior
+      shader.uniforms.uTFStrength = thinFilm.strength
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', /* glsl */`#include <common>
+          uniform float uTFThickness;
+          uniform float uTFIor;
+          uniform float uTFStrength;
+          // reflected interference colour for a viewing cosine (n·v)
+          vec3 thinFilmInterference(float cosTheta) {
+            // refraction into the film (Snell), then optical path difference in nm
+            float sinT2 = (1.0 - cosTheta * cosTheta) / (uTFIor * uTFIor);
+            float cosT = sqrt(max(0.0, 1.0 - sinT2));
+            float opd = 2.0 * uTFIor * uTFThickness * cosT;
+            // sample three wavelengths; +PI is the hard-reflection phase shift
+            vec3 lambda = vec3(650.0, 550.0, 450.0);
+            vec3 phase = 6.2831853 * opd / lambda + 3.1415926;
+            return 0.5 + 0.5 * cos(phase);
+          }
+        `)
+        .replace('#include <opaque_fragment>', /* glsl */`#include <opaque_fragment>
+          {
+            vec3 tfV = normalize(vViewPosition);
+            float tfCos = clamp(dot(normalize(normal), tfV), 0.0, 1.0);
+            // edge-weighted sheen (a touch broader than before for more coverage)
+            float tfFres = pow(1.0 - tfCos, 3.0);
+            vec3 tfIri = thinFilmInterference(tfCos);
+            // bias toward violet / purple (a little softer — some green left in)
+            vec3 tfTint = vec3(0.72, 0.32, 1.0);
+            tfIri = (tfIri * 0.45 + 0.55) * tfTint;
+            gl_FragColor.rgb += tfIri * tfFres * uTFStrength;
+          }
+        `)
+    }
+    material.customProgramCacheKey = () => 'walkman-thinfilm'
+    material.needsUpdate = true
+  }
+
+  // ---- per-neighbourhood light colour (matches the section background video) ----
+  const lightColors = {
+    chinatown: 0xFFB69C,  // red
+    les: 0x95B9FD,        // blue
+    soho: 0xffffff,       // white
+    greenwich: 0xFDE895,  // orange
+    harlem: 0xBFFBDD5,     // light purple
+  }
+  const targetLight = new THREE.Color(lightColors.chinatown)
+
+  // ---- lights (dim; all carry the neighbourhood colour so it reads as a wash) ----
+  const amb = new THREE.AmbientLight(0xffffff, 0.4); amb.color.copy(targetLight); scene.add(amb)
+  const key = new THREE.DirectionalLight(0xffffff, 0.8); key.position.set(-5, 7, 6); key.color.copy(targetLight); scene.add(key)
+  const fill = new THREE.DirectionalLight(0xffffff, 0.25); fill.position.set(6, -2, 4); fill.color.copy(targetLight); scene.add(fill)
+  const rim = new THREE.DirectionalLight(0xffffff, 0.45); rim.position.set(0, 2, -7); rim.color.copy(targetLight); scene.add(rim)
 
   const group = new THREE.Group()
   group.rotation.set(0.04, -0.1, 0)
   scene.add(group)
 
-  // ---- matte plastic materials ----
-  const matte = (color, r = 0.92) => new THREE.MeshStandardMaterial({ color, roughness: r, metalness: 0.0 })
-  const bodyMat = matte(0xd6d2ca, 0.92)
-  const plateMat = matte(0xccc8c0, 0.96)
-  const greyMat = matte(0xe7e2d6, 0.88)
-  const playMat = matte(0xe8511e, 0.82)
-  const inkDark = matte(0x4a463f, 0.7)
-  const inkCream = matte(0xfff4ee, 0.7)
-
-  // ---- body (sharp edges) ----
-  const body = new THREE.Mesh(new RoundedBoxGeometry(2.9, 4.7, 0.66, 2, 0.05), bodyMat)
-  group.add(body)
-  const plate = new THREE.Mesh(new RoundedBoxGeometry(2.54, 4.26, 0.12, 2, 0.04), plateMat)
-  plate.position.set(0, 0, 0.3)
-  group.add(plate)
-
-  // ---- LCD ----
+  // ---- LCD canvas (rendered onto an overlay plane once the model loads) ----
   const lcdCanvas = document.createElement('canvas'); lcdCanvas.width = 512; lcdCanvas.height = 280
   const lcdTex = new THREE.CanvasTexture(lcdCanvas); lcdTex.colorSpace = THREE.SRGBColorSpace
-  const lcdMat = new THREE.MeshStandardMaterial({ map: lcdTex, emissive: 0xffffff, emissiveMap: lcdTex, emissiveIntensity: 0.5, roughness: 0.35 })
-  const lcd = new THREE.Mesh(new RoundedBoxGeometry(2.32, 1.34, 0.1, 2, 0.05), lcdMat)
-  lcd.position.set(0, 1.18, 0.38)
-  group.add(lcd)
 
-  // ---- 3 buttons in a row: prev · play · next ----
-  const ROW_Y = -1.05, BZ = 0.42, GZ = 0.6
-  function makeButton(x, mat, r = 0.33, name) {
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.3, 44), mat)
-    b.rotation.x = Math.PI / 2; b.position.set(x, ROW_Y, BZ); b.name = name
-    group.add(b); return b
-  }
-  const prevBtn = makeButton(-0.86, greyMat, 0.33, 'prev')
-  const playBtn = makeButton(0, playMat, 0.4, 'play')
-  const nextBtn = makeButton(0.86, greyMat, 0.33, 'next')
-
-  // glyphs (flat triangles point +x by default)
-  const tri = (r) => new THREE.CircleGeometry(r, 3)
-  const bar = (h) => new THREE.BoxGeometry(0.05, h, 0.04)
-  const pressables = []
-  function glyph(mesh, name) { mesh.name = name; group.add(mesh); pressables.push(mesh); return mesh }
-
-  // prev: |◀
-  const prevTri = glyph(new THREE.Mesh(tri(0.12), inkDark), 'prev'); prevTri.rotation.z = Math.PI; prevTri.position.set(-0.82, ROW_Y, GZ)
-  const prevBar = glyph(new THREE.Mesh(bar(0.24), inkDark), 'prev'); prevBar.position.set(-0.98, ROW_Y, GZ)
-  // next: ▶|
-  const nextTri = glyph(new THREE.Mesh(tri(0.12), inkDark), 'next'); nextTri.position.set(0.82, ROW_Y, GZ)
-  const nextBar = glyph(new THREE.Mesh(bar(0.24), inkDark), 'next'); nextBar.position.set(0.98, ROW_Y, GZ)
-  // play / pause (toggled)
-  const playTri = glyph(new THREE.Mesh(tri(0.16), inkCream), 'play'); playTri.position.set(0.02, ROW_Y, GZ + 0.02)
-  const pauseL = glyph(new THREE.Mesh(bar(0.3), inkCream), 'play'); pauseL.position.set(-0.08, ROW_Y, GZ + 0.02)
-  const pauseR = glyph(new THREE.Mesh(bar(0.3), inkCream), 'play'); pauseR.position.set(0.08, ROW_Y, GZ + 0.02)
-  pauseL.visible = pauseR.visible = false
-  pressables.push(prevBtn, playBtn, nextBtn)
-
-  // ---- brand plate (lower area) ----
-  const brandCanvas = document.createElement('canvas'); brandCanvas.width = 512; brandCanvas.height = 140
-  const bctx = brandCanvas.getContext('2d')
-  bctx.clearRect(0, 0, 512, 140)
-  bctx.fillStyle = '#8a857b'; bctx.textAlign = 'center'
-  bctx.font = '800 60px Georgia, serif'; bctx.letterSpacing = '10px'
-  bctx.fillText('FLÂNEUR', 256, 64)
-  bctx.font = '700 26px ui-monospace, monospace'; bctx.letterSpacing = '8px'
-  bctx.fillText('SOUND ATLAS', 256, 104)
-  const brandTex = new THREE.CanvasTexture(brandCanvas); brandTex.colorSpace = THREE.SRGBColorSpace
-  const brand = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.55), new THREE.MeshBasicMaterial({ map: brandTex, transparent: true }))
-  brand.position.set(0, -2.05, 0.37)
-  group.add(brand)
-
-  // ---- LCD drawing ----
+  // ---- runtime state (queued until the model is ready) ----
   let placeText = 'Chinatown'
   let metaText = '40.715°N 73.997°W'
   let playing = false
   let tt = 0
   const wbars = new Array(24).fill(0.1)
-  // same monospace stack as the section-2 LCD (--font-mono)
   const MONO = getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim() || '"SF Mono", ui-monospace, monospace'
 
+  // nodes filled in on load
+  let model = null
+  let playNode = null
+  let pauseNode = null
+  const pressables = [] // meshes raycast for button hits
+  const pressOffset = new Map()
+
+  // ---- load the GLB ----
+  const loader = new GLTFLoader()
+  loader.load(
+    `${import.meta.env.BASE_URL || '/'}walkman.glb`,
+    (gltf) => onModelLoaded(gltf.scene),
+    undefined,
+    (err) => console.error('[walkman] failed to load walkman.glb', err),
+  )
+
+  function onModelLoaded(root) {
+    model = root
+    // front of the device (buttons + screen) is +X in the model; face it at the camera (+Z)
+    model.rotation.y = -Math.PI / 2
+    group.add(model)
+
+    // center + scale to fit (target height ~ the old procedural body)
+    const box = new THREE.Box3().setFromObject(model)
+    const size = box.getSize(new THREE.Vector3())
+    const center = box.getCenter(new THREE.Vector3())
+    const s = 4.7 / size.y
+    model.scale.setScalar(s)
+    model.position.set(-center.x * s, -center.y * s, -center.z * s)
+
+    // index nodes by name
+    const byName = {}
+    model.traverse((o) => { if (o.name) byName[o.name] = o })
+
+    // give every part the same glossy/reflective treatment + thin-film sheen,
+    // each keeping its own base colour. materials are shared between meshes, so
+    // cache by source material and upgrade each one only once.
+    const matCache = new Map()
+    const upgrade = (src) => {
+      if (matCache.has(src)) return matCache.get(src)
+      const m = new THREE.MeshPhysicalMaterial({
+        color: src.color, // unchanged base colour
+        map: src.map || null,
+        emissive: src.emissive || 0x000000,
+        emissiveMap: src.emissiveMap || null,
+        transparent: src.transparent,
+        opacity: src.opacity,
+        metalness: 0.4,
+        roughness: 0.3,
+        envMap: envTex,
+        envMapIntensity: 0.25,
+      })
+      applyThinFilm(m) // custom oil-slick / anodised iridescence (grazing-edge sheen)
+      matCache.set(src, m)
+      return m
+    }
+    model.traverse((o) => {
+      if (o.isMesh && o.material) {
+        o.material = Array.isArray(o.material) ? o.material.map(upgrade) : upgrade(o.material)
+      }
+    })
+
+    // buttons → raycast actions (Play and Pause share the 'play' action)
+    const tag = (node, action) => {
+      if (!node) return
+      node.userData.wkAction = action
+      pressables.push(node)
+    }
+    tag(byName['Prev'], 'prev')
+    tag(byName['Next'], 'next')
+    playNode = byName['Play']; pauseNode = byName['Pause']
+    tag(playNode, 'play'); tag(pauseNode, 'play')
+
+    // LCD overlay over the screen recess (model-local: front face +X, upper area)
+    // screen slab spans y≈0.41..1.37, z≈-0.73..0.73, front at x≈0.17
+    const lcdGeo = new THREE.PlaneGeometry(1.4, 0.92)
+    const lcdMat = new THREE.MeshBasicMaterial({ map: lcdTex, toneMapped: false })
+    const lcdMesh = new THREE.Mesh(lcdGeo, lcdMat)
+    lcdMesh.position.set(0.185, 0.89, 0)
+    lcdMesh.rotation.y = Math.PI / 2 // face +X; plane local X → -Z so width runs along Z
+    model.add(lcdMesh)
+
+    // apply any state set before load finished
+    setPlayingMeshes(playing)
+    drawLCD()
+  }
+
+  function setPlayingMeshes(b) {
+    if (playNode) playNode.visible = !b
+    if (pauseNode) pauseNode.visible = b
+  }
+
+  // ---- LCD drawing ----
   function drawLCD() {
     const c = lcdCanvas.getContext('2d')
     c.fillStyle = '#16201c'; c.fillRect(0, 0, 512, 280)
@@ -146,27 +243,30 @@ export function initWalkman(container, handlers = {}) {
   // ---- raycast buttons ----
   const ray = new THREE.Raycaster()
   const ndc = new THREE.Vector2()
-  const pressOffset = new Map()
-  function pressAnim(name) {
-    pressables.filter((m) => m.name === name).forEach((m) => {
+  function pressAnim(action) {
+    pressables.filter((m) => m.userData.wkAction === action && m.visible).forEach((m) => {
       if (pressOffset.has(m)) return
-      pressOffset.set(m, m.position.z)
-      m.position.z -= 0.1
-      setTimeout(() => { m.position.z = pressOffset.get(m); pressOffset.delete(m) }, 130)
+      pressOffset.set(m, m.position.x) // front axis is local +X
+      m.position.x -= 0.06
+      setTimeout(() => { m.position.x = pressOffset.get(m); pressOffset.delete(m) }, 130)
     })
   }
   function onDown(e) {
+    if (!pressables.length) return
     const r = container.getBoundingClientRect()
     ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1
     ndc.y = -(((e.clientY - r.top) / r.height) * 2 - 1)
     ray.setFromCamera(ndc, camera)
-    const hit = ray.intersectObjects(pressables, false)[0]
+    const hit = ray.intersectObjects(pressables, true)[0]
     if (!hit) return
-    const name = hit.object.name
-    pressAnim(name)
-    if (name === 'prev') onPrev()
-    else if (name === 'play') onPlayToggle()
-    else if (name === 'next') onNext()
+    let o = hit.object
+    while (o && o.userData.wkAction === undefined) o = o.parent
+    const action = o && o.userData.wkAction
+    if (!action) return
+    pressAnim(action)
+    if (action === 'prev') onPrev()
+    else if (action === 'play') onPlayToggle()
+    else if (action === 'next') onNext()
   }
   container.addEventListener('pointerdown', onDown)
 
@@ -190,21 +290,29 @@ export function initWalkman(container, handlers = {}) {
     tt += 0.016
     group.rotation.x += (baseRX + targetRX - group.rotation.x) * 0.08
     group.rotation.y += (baseRY + targetRY - group.rotation.y) * 0.08
+    // ease the lights toward the active neighbourhood colour
+    amb.color.lerp(targetLight, 0.05)
+    key.color.lerp(targetLight, 0.05)
+    fill.color.lerp(targetLight, 0.05)
+    rim.color.lerp(targetLight, 0.05)
     if (!reduce) { group.position.y = Math.sin(tt * 1.2) * 0.05; group.rotation.z = Math.sin(tt * 0.6) * 0.012 }
     if (waveFrame++ % 3 === 0) { // slower, calmer wave
       for (let i = wbars.length - 1; i > 0; i--) wbars[i] = wbars[i - 1]
       const beat = 0.4 + 0.6 * Math.pow(Math.abs(Math.sin(tt * 0.9)), 1.5)
       wbars[0] = playing ? Math.min(1, (0.3 + 0.7 * Math.random()) * beat) : Math.max(0.05, wbars[0] - 0.05)
     }
-    drawLCD()
+    if (model) drawLCD()
     renderer.render(scene, camera)
   }
   function start() { if (!running) { running = true; raf = requestAnimationFrame(tick) } }
   function stop() { running = false; cancelAnimationFrame(raf) }
 
   return {
-    setLocation(loc) { placeText = loc.name; metaText = loc.coord },
-    setPlaying(b) { playing = b; playTri.visible = !b; pauseL.visible = pauseR.visible = b },
+    setLocation(loc) {
+      placeText = loc.name; metaText = loc.coord
+      if (loc.id && lightColors[loc.id] !== undefined) targetLight.set(lightColors[loc.id])
+    },
+    setPlaying(b) { playing = b; setPlayingMeshes(b) },
     show() { container.classList.add('is-on'); resize(); start() },
     hide() { container.classList.remove('is-on'); stop() },
     dispose() {
@@ -213,6 +321,7 @@ export function initWalkman(container, handlers = {}) {
       container.removeEventListener('pointerleave', onLeave)
       container.removeEventListener('pointerdown', onDown)
       window.removeEventListener('resize', resize)
+      pmrem.dispose()
       renderer.dispose()
     },
   }

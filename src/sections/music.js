@@ -74,7 +74,10 @@ export function initMusic() {
     return walkmanReq
   }
   const showWalkman = () => ensureWalkman().then((w) => w.show())
-  const hideWalkman = () => walkman && walkman.hide()
+  const hideWalkman = () => {
+    audio.stop() // fade the music out when the section scrolls away
+    if (walkman) { walkman.setPlaying(false); walkman.hide() }
+  }
 
   function setActive(i) {
     if (i === active) return
