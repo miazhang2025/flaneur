@@ -25,7 +25,6 @@ neighborhoods.forEach((n) => {
       <h3 class="m-name">${n.name}</h3>
       <div class="m-tag">${n.tag}</div>
       <div class="m-line">${n.line}</div>
-      <div class="m-song">♪ ${n.song.title} · ${n.song.artist}</div>
     </div>`
   mStage.appendChild(panel)
   panels.push(panel)
@@ -77,7 +76,6 @@ const order = [
   { kind: 'page', id: 's-app' },
   { kind: 'page', id: 's-word' },
   { kind: 'page', id: 's-origin' },
-  { kind: 'page', id: 's-rule' },
   { kind: 'music', mi: 0 },
   { kind: 'music', mi: 1 },
   { kind: 'music', mi: 2 },
@@ -88,6 +86,7 @@ const order = [
   { kind: 'page', id: 's-demo3' },
   { kind: 'page', id: 's-demo4' },
   { kind: 'page', id: 's-engine' },
+  { kind: 'page', id: 's-engine2' },
   { kind: 'page', id: 's-layers' },
   { kind: 'page', id: 's-stack' },
   { kind: 'page', id: 's-map' },
