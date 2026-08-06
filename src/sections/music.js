@@ -131,7 +131,7 @@ export function initMusic() {
       onLeaveBack: () => { gsap.set(screen, { autoAlpha: 0 }); if (lcd) lcd.style.opacity = '1' },
     })
 
-    // fade out before Technical
+    // fade out before App Demo
     gsap.to(screen, {
       autoAlpha: 0, ease: 'power2.in',
       scrollTrigger: { trigger: music, start: 'bottom 80%', end: 'bottom 52%', scrub: true },

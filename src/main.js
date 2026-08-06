@@ -2,17 +2,23 @@ import './styles/tokens.css'
 import './styles/base.css'
 import './styles/sections.css'
 
+import { inject } from '@vercel/analytics'
+
 import { initSmoothScroll } from './lib/scroll.js'
 import { initHero } from './sections/hero.js'
+import { initDemoSection } from './sections/demo.js'
 import { initAbout } from './sections/about.js'
 import { initMusic } from './sections/music.js'
 import { initTechnical } from './sections/technical.js'
 import { initCTA } from './sections/cta.js'
 
+inject()
+
 const lenis = initSmoothScroll()
 initHero()
 initAbout()
 initMusic()
+initDemoSection()
 initTechnical()
 initCTA()
 
